@@ -1,0 +1,200 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <string.h>
+
+void modelo(double alpha, double beta, double gamma, double delta, double presas0, double presas1, double depredadores0, double depredadores1, double *T, double *pren, double *depren, int N);
+
+double likehood(double *presas, double *depredadores, double *pmod, double *dmod, int n);
+
+double new_likelihood(double *presas, double *depredadores, double *t, int n, double*pmod, double *dmod, double *T, int N, float dt);
+
+float fRand(float fMin, float fMax);
+
+
+int main (void){
+
+  /*CONSTANTE*/
+  int i;
+  int imax = 10000;
+  double alpha = 23.0;
+  double alphan;
+  double beta = 4.0;
+  double betan;
+  double gamma = 25.0;
+  double gamman;
+  double delta = 0.9;
+  double deltan;
+  double like;
+  double liken;
+
+  int n = 96;
+  double t[n];
+  double presas[n];
+  double depredadores[n];
+
+  int N = 500;
+  double t0=0.0, tf=0.8;
+  double dt = (tf-t0)/N;
+  double T[N];
+  double pre0[N];
+  double dep0[N];
+  double pre1[N];
+  double dep1[N];
+
+  double moneda;
+  double al;
+
+  /*CARGA DATA*/
+  FILE *prueba = fopen("prueba.csv", "w");
+  FILE *resultados = fopen("resultados.csv", "w");
+  FILE *data = fopen("data.txt","r");
+  for (i = 0; i < n; i++){
+    fscanf(data, "%lf %lf %lf\n", &t[i], &presas[i], &depredadores[i]);
+  }
+
+
+  /* Generar vector de tiempo uniformemente espaciado*/
+  T[0] = 0.0;
+  for (i = 1; i < N; i++)
+  {
+    T[i] = T[i-1] + dt;
+  }
+
+    
+  modelo(alpha, beta, gamma,  delta, presas[0], presas[1], depredadores[0], depredadores[1], T, pre0, dep0, N);
+  /* like = likehood(presas, depredadores, pre0, dep0, n);*/
+  /*
+  Ejemplo de como usar el nuevo likelihood
+  El 2*dt es arbitrario, poría usar 5*dt o algo similar. En general solo representa
+  el criterio para definir si un double en T es suficientemente parecido a un double en t
+  como para considerarlos el mismo instante de tiempo
+  */
+  like = new_likelihood(presas, depredadores, t, n, pre0, dep0, T, N, 5*dt);
+
+  /*Metropolis*/
+  for (i = 0; i < imax; i++)
+  {
+    alphan = alpha + fRand(-0.08, 0.08);
+    while (alphan < 0.0){
+       alphan = alpha + fRand(-0.08, 0.08);
+    } 
+    betan = beta + fRand(-0.0008, 0.0008);
+    while (betan < 0.0){
+       betan = beta + fRand(-0.0008, 0.0008);  
+    }
+    gamman = gamma + fRand(-0.8, 0.8);
+    while (gamman < 0.0){
+       gamman = gamma + fRand(-0.8, 0.8); 
+    }
+    deltan = delta + fRand(-0.8, 0.8);
+    while (deltan < 0.0){
+       deltan = delta + fRand(-0.8, 0.8); 
+    }
+
+
+    modelo(alphan, betan, gamman,  deltan, presas[0], presas[1], depredadores[0], depredadores[1], T, pre1, dep1, N);
+    liken = likehood(presas, depredadores, pre1, dep1, n);
+
+    al  = liken/like;
+    if (al >= 1.0){
+      alpha = alphan;
+      beta = betan;
+      gamma = gamman;
+      delta = deltan;
+      like = liken;
+    }
+    else{
+      moneda = fRand(0,1);
+      if(moneda <= al){
+	alpha = alphan;
+	beta = betan;
+	gamma = gamman;
+	delta = deltan;
+	like = liken;
+      }
+    }
+    fprintf(resultados, "%lf,%lf,%lf,%lf\n", alpha, beta, gamma, delta);
+    
+  }
+  
+
+  for (i = 0; i<N; i++){
+    fprintf (prueba, "%lf,%lf,%lf\n", T[i], pre0[i], dep0[i]);
+  }
+  return 0;
+}
+
+void modelo(double alpha, double beta, double gamma, double delta, double presas0, double presas1, double depredadores0, double depredadores1, double *T, double *pren, double *depren, int N){
+  int i;
+  double dt2;
+  pren[0] = presas0;
+  /*pren[1] = presas1;*/
+  depren[0] = depredadores0;
+  /*depren[1] = depredadores1;*/
+
+  for (i = 1; i < N; i++){
+    /*pass by reference*/
+    /* Integracion con metodo de Euler */
+    dt2 = T[i] - T[i-1];
+    pren[i] = pren[i-1] + dt2 * pren[i-1]*(alpha - beta*depren[i-1]);
+    depren[i] = depren[i-1] - dt2 * depren[i-1]*(gamma - delta*pren[i-1]);
+  }
+}
+
+/*NO*/
+double likehood(double *presas, double *depredadores, double *pmod, double *dmod, int n){
+  float c = 0;
+  float b = 0;
+  int i;
+  for (i  = 0; i < n; i++){
+    c = c + pow(presas[i] - pmod[i],2);
+    b = b + pow(depredadores[i] - dmod[i], 2);
+  }
+  /*return exp(-c-b);*/
+  return c+b;
+}
+/*SI*/
+double new_likelihood(double *presas, double *depredadores, double *t, int n, double*pmod, double *dmod, double *T, int N, float dt)
+{
+  /*
+  presas, depredadores, t son los 'n' datos observados
+  pmod, dmod, T son los los 'N' datos calculados con el modelo
+  dt es el delta de tiempo que se usa para decidir si los double del vector
+  de tiempo representan aproximadamente el mismo instante
+
+  La idea es encontrar cual posicion en e vector 't' corresponde al mismo
+  instante de tiempo en el vector 'T'. Para cada tiempo correspondiente
+  se comparan los datos observados y los datos experimentales
+  */
+  int i=0, I=0;
+  double c=0.0;
+  int find=0;
+
+  for (i = 0; i < n; i++)
+  {
+    find = 0;
+    while(I<N && find==0)
+    {
+      if (abs(t[i]-T[I]) < dt )
+      {
+        c = c + pow( pow(presas[i]-pmod[I],2) + pow(depredadores[i]-dmod[I],2) , 0.5);
+        find = 1; /*Terminar el 'while'*/
+        I = I+5;
+      }
+      I = I + 1;
+    }
+  }
+  /*Dividir la sumatoria c entre n^2 es una forma modificada de la
+  norma l2. Lo hago porque al calcular exp(-0.5*c) la precision de los
+  float no es suficiente y devulve valores de 0.0
+  Con c/n^2 se obtienen valores que la precision del double puede manejar*/
+  return exp(-0.5*c/pow(n,2));
+}
+
+float fRand(float fMin, float fMax){
+  /* http://stackoverflow.com/questions/2704521/generate-random-double-numbers-in-c */
+  float f = (float)rand() / RAND_MAX;
+  return fMin + f * (fMax - fMin);
+}
+ 

@@ -1,0 +1,10 @@
+all: a.out prueba.csv resultados.cvs 
+
+prueba.csv: a.out
+	./a.out
+
+a.out: bio.c data.txt
+	gcc bio.c -lm
+
+clean:
+	rm prueba.csv resultados.csv

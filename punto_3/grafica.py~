@@ -1,0 +1,29 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Cargar datos
+lv_c = np.genfromtxt('prueba.csv', delimiter=',')
+lv_obs = np.genfromtxt('data.txt', delimiter=' ')
+
+# Grafica de presas
+ylims = [0,90];
+
+plt.figure()
+plt.plot(lv_c[:,0], lv_c[:,1], '.-', label='presas')
+plt.plot(lv_c[:,0], lv_c[:,2], '.-', label='depredadores')
+plt.xlabel('tiempo')
+plt.ylabel('N')
+plt.ylim(ylims)
+plt.grid()
+plt.legend()
+plt.savefig('lv_c.png')
+
+plt.figure()
+plt.plot(lv_obs[:,0], lv_obs[:,1], '.-', label='presas')
+plt.plot(lv_obs[:,0], lv_obs[:,2], '.-', label='depredadores')
+plt.xlabel('tiempo')
+plt.ylabel('N')
+plt.ylim(ylims)
+plt.grid()
+plt.legend()
+plt.savefig('lv_obs.png')

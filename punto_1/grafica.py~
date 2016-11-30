@@ -1,0 +1,17 @@
+import numpy as np
+import corner 
+import matplotlib.pyplot as plt
+import pandas as pd
+
+#Carga Datos
+nombres = ['x','y','l']
+data = no.genfromtxt('resultados.csv', delimeter = ',', names = nombres)
+
+#Plots
+fig,ax = plt.subplots()
+fig.set_size_inches((6,6))
+ax.plot(data['x'], data['y'], '.', alpha=0.5, label='random walk')
+ax.set_xlabel('x'); ax.set_ylabel('y')
+ax.grid()
+ax.legend(loc='best')
+fig.savefig('densityPlot.png')
